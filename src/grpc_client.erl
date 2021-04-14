@@ -302,9 +302,9 @@ unary(Connection, Message, Service, Rpc, Decoder,
         stop_stream(Stream),
         Response
     catch
-        Type:Error ->
+        Type:Error:Stacktrace ->
             {error,
              #{error_type => client,
                status_message => <<"error creating stream">>,
-               debug_info => {Type, Error}}}
+               debug_info => {Type, Error, Stacktrace}}}
     end.
