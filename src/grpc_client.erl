@@ -30,18 +30,18 @@
          compile/2,
          connect/3,
          connect/4,
+         get/1,
          new_stream/4,
          new_stream/5,
-         send/2,
-         send_last/2,
-         unary/6,
+         ping/2,
          rcv/1,
          rcv/2,
-         get/1,
-         ping/2,
+         send/2,
+         send_last/2,
+         stop_connection/1,
          stop_stream/1,
          stop_stream/2,
-         stop_connection/1]).
+         unary/6]).
 
 -type connection_option() :: verify_server_opt() |
                              server_host_override_opt() |
@@ -302,8 +302,9 @@ unary(Connection, Message, Service, Rpc, Decoder,
         stop_stream(Stream),
         Response
     catch
-        _Type:_Error ->
+        Type:Error ->
             {error,
              #{error_type => client,
-               status_message => <<"error creating stream">>}}
+               status_message => <<"error creating stream">>,
+               debug_info => {Type, Error}}}
     end.
