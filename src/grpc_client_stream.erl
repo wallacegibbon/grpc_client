@@ -255,7 +255,8 @@ find_last_field([C | Rest], R) when C =/= $. ->
     find_last_field(Rest, [C | R]);
 find_last_field([$. | Rest], _) ->
     find_last_field(Rest, []);
-find_last_field([], R) -> lists:reverse(R).
+find_last_field([], R) ->
+    list_to_atom(lists:reverse(R)).
 
 send_msg(#{stream_id := StreamId,
            connection := Connection, headers_sent := HeadersSent,
