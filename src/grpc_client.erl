@@ -144,7 +144,8 @@ compile(FileName) -> grpc_client:compile(FileName, []).
 %% current working directory will be found).
 compile(FileName, Options) ->
     grpc_lib_compile:file(FileName,
-                          [{generate, client} | Options]).
+                          [{generate, client}, {strings_as_binaries, true}
+                           | Options]).
 
 -spec connect(Transport :: tcp | ssl, Host :: string(),
               Port :: integer()) -> {ok, connection()} |
