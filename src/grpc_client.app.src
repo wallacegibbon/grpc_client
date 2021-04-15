@@ -3,7 +3,7 @@
  [{description, "gRPC client in Erlang"},
   {vsn, "0.2.0"},
   {applications,
-   [kernel, stdlib, grpc_lib, dep_http2_client]},
+   [kernel, stdlib, grpc_lib, http2_client]},
   {modules, []},
   {registered, []},
   {env, []}]}
