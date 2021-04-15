@@ -1,6 +1,5 @@
 _build
 .erlang.mk
-rebar.lock
 grpc_client.d
 .eunit
 deps

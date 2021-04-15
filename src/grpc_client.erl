@@ -292,16 +292,20 @@ unary(Connection, Message, Service, Rpc, Decoder,
     {Timeout, StreamOptions} = grpc_lib:keytake(timeout,
                                                 Options,
                                                 infinity),
-    try {ok, Stream} = new_stream(Connection,
-                                  Service,
-                                  Rpc,
-                                  Decoder,
-                                  StreamOptions),
-        Response = grpc_client_stream:call_rpc(Stream,
-                                               Message,
-                                               Timeout),
-        stop_stream(Stream),
-        Response
+    try new_stream(Connection,
+                   Service,
+                   Rpc,
+                   Decoder,
+                   StreamOptions)
+    of
+        {ok, Stream} ->
+            Response = grpc_client_stream:call_rpc(Stream,
+                                                   Message,
+                                                   Timeout),
+            stop_stream(Stream),
+            Response;
+        {error, I} ->
+            {error, #{error_type => client, status_message => I}}
     catch
         Type:Error:Stacktrace ->
             {error,
