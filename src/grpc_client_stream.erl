@@ -24,33 +24,18 @@
 
 -behaviour(gen_server).
 
--export([call_rpc/3,
-         get/1,
-         new/5,
-         rcv/1,
-         rcv/2,
-         send/2,
-         send_last/2,
-         state/1,
+-export([call_rpc/3, get/1, new/5, rcv/1, rcv/2, send/2, send_last/2, state/1,
          stop/2]).
 
 %% gen_server behaviors
--export([code_change/3,
-         handle_call/3,
-         handle_cast/2,
-         handle_info/2,
-         init/1,
+-export([code_change/3, handle_call/3, handle_cast/2, handle_info/2, init/1,
          terminate/2]).
 
 -type stream() :: #{stream_id := integer(),
                     service := string(), rpc := string(),
                     queue := queue:queue(), response_pending := boolean(),
-                    state :=
-                        idle |
-                        open |
-                        half_closed_local |
-                        half_closed_remote |
-                        closed,
+                    state := idle | open | half_closed_local |
+                             half_closed_remote | closed,
                     encoder := module(),
                     connection := grpc_client:connection(),
                     headers_sent := boolean(),
@@ -74,18 +59,20 @@ send(Pid, Message) ->
 send_last(Pid, Message) ->
     gen_server:call(Pid, {send_last, Message}).
 
-get(Pid) -> gen_server:call(Pid, get).
+get(Pid) ->
+    gen_server:call(Pid, get).
 
-rcv(Pid) -> rcv(Pid, infinity).
+rcv(Pid) ->
+    rcv(Pid, infinity).
 
 rcv(Pid, Timeout) ->
     gen_server:call(Pid, {rcv, Timeout}, infinity).
 
 %% @doc Get the state of the stream.
-state(Pid) -> gen_server:call(Pid, state).
+state(Pid) ->
+    gen_server:call(Pid, state).
 
--spec stop(Stream :: pid(),
-           ErrorCode :: integer()) -> ok.
+-spec stop(Stream :: pid(), ErrorCode :: integer()) -> ok.
 
 %% @doc Close (stop/clean up) the stream.
 %%
@@ -102,21 +89,22 @@ call_rpc(Pid, Message, Timeout) ->
         _:_ ->
             {error,
              #{error_type => client,
-               status_message =>
-                   <<"failed to encode and send message">>}}
+               status_message => <<"failed to encode and send message">>}}
     end.
 
 %% gen_server implementation
 %% @private
 init({Connection, Service, Rpc, Encoder, Options}) ->
-    try {ok,
-         new_stream(Connection, Service, Rpc, Encoder, Options)}
+    try
+        {ok, new_stream(Connection, Service, Rpc, Encoder, Options)}
     catch
-        _Class:_Error -> {stop, <<"failed to create stream">>}
+        _Class:_Error ->
+            {stop, <<"failed to create stream">>}
     end.
 
 %% @private
-code_change(_OldVsn, State, _Extra) -> {ok, State}.
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 -spec handle_call(term(), term(), stream()) -> term().
 
@@ -129,14 +117,15 @@ handle_call({send_last, Message}, _From, Stream) ->
     {reply, ok, send_msg(Stream, Message, true)};
 handle_call({send, Message}, _From, Stream) ->
     {reply, ok, send_msg(Stream, Message, false)};
-handle_call(get, _From,
-            #{queue := Queue, state := StreamState} = Stream) ->
+handle_call(get, _From, #{queue := Queue, state := StreamState} = Stream) ->
     {Value, NewQueue} = queue:out(Queue),
     Response = case {Value, StreamState} of
-                   {{value, V}, _} -> V;
+                   {{value, V}, _} ->
+                       V;
                    {empty, S} when S == closed; S == half_closed_remote ->
                        eof;
-                   {empty, _} -> empty
+                   {empty, _} ->
+                       empty
                end,
     {reply, Response, Stream#{queue => NewQueue}};
 handle_call({rcv, Timeout}, From,
@@ -144,7 +133,8 @@ handle_call({rcv, Timeout}, From,
     {Value, NewQueue} = queue:out(Queue),
     NewStream = Stream#{queue => NewQueue},
     case {Value, StreamState} of
-        {{value, V}, _} -> {reply, V, NewStream};
+        {{value, V}, _} ->
+            {reply, V, NewStream};
         {empty, S} when S == closed; S == half_closed_remote ->
             {reply, eof, NewStream};
         {empty, _} ->
@@ -154,52 +144,45 @@ handle_call({rcv, Timeout}, From,
     end.
 
 %% @private
-handle_cast(_, State) -> {noreply, State}.
+handle_cast(_, State) ->
+    {noreply, State}.
 
 %% @private
 handle_info({'RECV_DATA', StreamId, Bin}, Stream) ->
     %% This is a workaround to deal with the different format from Chatterbox.
     %% TODO: find a better way to do this.
-    handle_info({'RECV_DATA', StreamId, Bin, false, false},
-                Stream);
-handle_info({'RECV_DATA',
-             StreamId,
-             Bin,
-             _StreamWindowError,
+    handle_info({'RECV_DATA', StreamId, Bin, false, false}, Stream);
+handle_info({'RECV_DATA', StreamId, Bin, _StreamWindowError,
              _ConnectionWindowError},
             #{stream_id := StreamId, buffer := Buffer} = Stream) ->
     case <<Buffer/binary, Bin/binary>> of
-        <<Encoded:8, Size:32, Message:Size/binary,
-          Rest/binary>> ->
-            Response = try {data,
+        <<Encoded:8, Size:32, Message:Size/binary, Rest/binary>> ->
+            Response = try
+                           {data,
                             decode(Encoded, Message, Stream#{buffer => Rest})}
                        catch
-                           {error, Message} -> {error, Message};
+                           {error, Message} ->
+                               {error, Message};
                            _Error:_Message ->
                                {error, <<"failed to decode message">>}
                        end,
             info_response(Response, Stream#{buffer => Rest});
-        NotComplete -> {noreply, Stream#{buffer => NotComplete}}
+        NotComplete ->
+            {noreply, Stream#{buffer => NotComplete}}
     end;
 handle_info({'RECV_HEADERS', StreamId, Headers},
-            #{stream_id := StreamId, state := StreamState} =
-                Stream) ->
+            #{stream_id := StreamId, state := StreamState} = Stream) ->
     HeadersMap =
-        maps:from_list([grpc_lib:maybe_decode_header(H)
-                        || H <- Headers]),
-    Encoding = maps:get(<<"grpc-encoding">>,
-                        HeadersMap,
-                        none),
+        maps:from_list([grpc_lib:maybe_decode_header(H) || H <- Headers]),
+    Encoding = maps:get(<<"grpc-encoding">>, HeadersMap, none),
     NewState = case StreamState of
                    idle -> open;
                    _ -> StreamState
                end,
     info_response({headers, HeadersMap},
-                  Stream#{response_encoding => Encoding,
-                          state => NewState});
+                  Stream#{response_encoding => Encoding, state => NewState});
 handle_info({'END_STREAM', StreamId},
-            #{stream_id := StreamId, state := StreamState} =
-                Stream) ->
+            #{stream_id := StreamId, state := StreamState} = Stream) ->
     NewState = case StreamState of
                    half_closed_local -> closed;
                    _ -> half_closed_remote
@@ -207,36 +190,29 @@ handle_info({'END_STREAM', StreamId},
     info_response(eof, Stream#{state => NewState});
 handle_info({ClosedMessage, StreamId, _ErrorCode},
             #{stream_id := StreamId} = Stream)
-    when ClosedMessage == 'RESET_BY_PEER';
-         ClosedMessage == 'CLOSED_BY_PEER' ->
+        when ClosedMessage == 'RESET_BY_PEER';
+             ClosedMessage == 'CLOSED_BY_PEER' ->
     info_response(eof, Stream#{state => closed});
-handle_info(timeout,
-            #{response_pending := true, client := Client} =
-                Stream) ->
+handle_info(timeout, #{response_pending := true, client := Client} = Stream) ->
     gen_server:reply(Client, {error, timeout}),
     {noreply, Stream#{response_pending => false}};
-handle_info(_InfoMessage, Stream) -> {noreply, Stream}.
+handle_info(_InfoMessage, Stream) ->
+    {noreply, Stream}.
 
 %% @private
-terminate(_Reason, _State) -> ok.
+terminate(_Reason, _State) ->
+    ok.
 
 %% internal methods
 
-new_stream(Connection, Service, Rpc, Encoder,
-           Options) ->
-    Compression = proplists:get_value(compression,
-                                      Options,
-                                      none),
+new_stream(Connection, Service, Rpc, Encoder, Options) ->
+    Compression = proplists:get_value(compression, Options, none),
     Metadata = proplists:get_value(metadata, Options, #{}),
-    TransportOptions = proplists:get_value(http2_options,
-                                           Options,
-                                           []),
+    TransportOptions = proplists:get_value(http2_options, Options, []),
     {ok, StreamId} =
-        grpc_client_connection:new_stream(Connection,
-                                          TransportOptions),
+        grpc_client_connection:new_stream(Connection, TransportOptions),
     RpcDef =
-        Encoder:find_rpc_def(fetch_message_name_from_service(Service),
-                             Rpc),
+        Encoder:find_rpc_def(fetch_message_name_from_service(Service), Rpc),
     %% the gpb rpc def has 'input', 'output' etc.
     %% All the information is combined in 1 map,
     %% which is is the state of the gen_server.
@@ -247,8 +223,7 @@ new_stream(Connection, Service, Rpc, Encoder,
             headers_sent => false, metadata => Metadata,
             compression => Compression, buffer => <<>>}.
 
-fetch_message_name_from_service(Service)
-    when is_atom(Service) ->
+fetch_message_name_from_service(Service) when is_atom(Service) ->
     find_last_field(atom_to_list(Service), []).
 
 find_last_field([C | Rest], R) when C =/= $. ->
@@ -258,53 +233,47 @@ find_last_field([$. | Rest], _) ->
 find_last_field([], R) ->
     list_to_atom(lists:reverse(R)).
 
-send_msg(#{stream_id := StreamId,
-           connection := Connection, headers_sent := HeadersSent,
-           metadata := Metadata, state := State} =
+send_msg(#{stream_id := StreamId, connection := Connection,
+           headers_sent := HeadersSent, metadata := Metadata, state := State} =
              Stream,
-         Message, EndStream) ->
+         Message,
+         EndStream) ->
     Encoded = encode(Stream, Message),
     case HeadersSent of
         false ->
             DefaultHeaders = default_headers(Stream),
             AllHeaders = add_metadata(DefaultHeaders, Metadata),
-            ok = grpc_client_connection:send_headers(Connection,
-                                                     StreamId,
+            ok = grpc_client_connection:send_headers(Connection, StreamId,
                                                      AllHeaders);
-        true -> ok
+        true ->
+            ok
     end,
     Opts = [{end_stream, EndStream}],
     NewState = case {EndStream, State} of
-                   {false, _} when State == idle -> open;
-                   {false, _} -> State;
+                   {false, _} when State == idle ->
+                       open;
+                   {false, _} ->
+                       State;
                    {true, _} when State == open; State == idle ->
                        half_closed_local;
-                   {true, _} -> closed
+                   {true, _} ->
+                       closed
                end,
-    ok = grpc_client_connection:send_body(Connection,
-                                          StreamId,
-                                          Encoded,
-                                          Opts),
+    ok = grpc_client_connection:send_body(Connection, StreamId, Encoded, Opts),
     Stream#{headers_sent => true, state => NewState}.
 
-rst_stream(#{connection := Connection,
-             stream_id := StreamId} =
-               Stream,
+rst_stream(#{connection := Connection, stream_id := StreamId} = Stream,
            ErrorCode) ->
-    grpc_client_connection:rst_stream(Connection,
-                                      StreamId,
-                                      ErrorCode),
+    grpc_client_connection:rst_stream(Connection, StreamId, ErrorCode),
     Stream#{state => closed}.
 
-default_headers(#{service := Service, rpc := Rpc,
-                  compression := Compression,
+default_headers(#{service := Service, rpc := Rpc, compression := Compression,
                   connection := #{host := Host, scheme := Scheme}}) ->
-    Path = iolist_to_binary(["/",
-                             atom_to_list(Service),
-                             "/",
+    Path = iolist_to_binary(["/", atom_to_list(Service), "/",
                              atom_to_list(Rpc)]),
     Headers1 = case Compression of
-                   none -> [];
+                   none ->
+                       [];
                    _ ->
                        [{<<"grpc-encoding">>,
                          atom_to_binary(Compression, unicode)}]
@@ -328,8 +297,7 @@ add_metadata(Headers, Metadata) ->
                 maps:to_list(Metadata)).
 
 info_response(Response,
-              #{response_pending := true, client := Client} =
-                  Stream) ->
+              #{response_pending := true, client := Client} = Stream) ->
     gen_server:reply(Client, Response),
     {noreply, Stream#{response_pending => false}};
 info_response(Response, #{queue := Queue} = Stream) ->
@@ -348,7 +316,8 @@ encode(#{encoder := Encoder, input := MsgType,
     catch
         error:function_clause ->
             throw({error, {failed_to_encode, MsgType, Map}});
-        Error:Reason -> throw({error, {Error, Reason}})
+        Error:Reason ->
+            throw({error, {Error, Reason}})
     end.
 
 maybe_compress(Encoded, none) ->
@@ -359,12 +328,10 @@ maybe_compress(Encoded, gzip) ->
     Length = byte_size(Compressed),
     <<1, Length:32, Compressed/binary>>;
 maybe_compress(_Encoded, Other) ->
-    throw({error,
-           {compression_method_not_supported, Other}}).
+    throw({error, {compression_method_not_supported, Other}}).
 
 decode(Encoded, Binary,
-       #{response_encoding := Method, encoder := Encoder,
-         output := MsgType}) ->
+       #{response_encoding := Method, encoder := Encoder, output := MsgType}) ->
     Message = case Encoded of
                   1 -> decompress(Binary, Method);
                   0 -> Binary
@@ -374,16 +341,13 @@ decode(Encoded, Binary,
 decompress(Compressed, <<"gzip">>) ->
     zlib:gunzip(Compressed);
 decompress(_Compressed, Other) ->
-    throw({error,
-           {decompression_method_not_supported, Other}}).
+    throw({error, {decompression_method_not_supported, Other}}).
 
 process_response(Pid, Timeout) ->
     case rcv(Pid, Timeout) of
         {headers,
-         #{<<":status">> := <<"200">>,
-           <<"grpc-status">> := GrpcStatus} =
-             Trailers}
-            when GrpcStatus /= <<"0">> ->
+         #{<<":status">> := <<"200">>, <<"grpc-status">> := GrpcStatus} =
+             Trailers} when GrpcStatus /= <<"0">> ->
             %% "trailers only" response.
             grpc_response(#{}, #{}, Trailers);
         {headers, #{<<":status">> := <<"200">>} = Headers} ->
@@ -392,7 +356,8 @@ process_response(Pid, Timeout) ->
             {error,
              #{error_type => http, status => {http, HttpStatus},
                headers => Headers}};
-        {error, timeout} -> {error, #{error_type => timeout}}
+        {error, timeout} ->
+            {error, #{error_type => timeout}}
     end.
 
 get_message(Headers, Pid, Timeout) ->
@@ -415,22 +380,18 @@ get_trailer(Response, Headers, Pid, Timeout) ->
                result => Response}}
     end.
 
-grpc_response(Headers, Response,
-              #{<<"grpc-status">> := <<"0">>} = Trailers) ->
-    StatusMessage = maps:get(<<"grpc-message">>,
-                             Trailers,
-                             <<"">>),
+grpc_response(Headers, Response, #{<<"grpc-status">> := <<"0">>} = Trailers) ->
+    StatusMessage = maps:get(<<"grpc-message">>, Trailers, <<"">>),
     {ok,
      #{status_message => StatusMessage, http_status => 200,
        grpc_status => 0, headers => Headers,
        result => Response, trailers => Trailers}};
 grpc_response(Headers, Response,
               #{<<"grpc-status">> := ErrorStatus} = Trailers) ->
-    StatusMessage = maps:get(<<"grpc-message">>,
-                             Trailers,
-                             <<"">>),
+    StatusMessage = maps:get(<<"grpc-message">>, Trailers, <<"">>),
     {error,
      #{error_type => grpc, http_status => 200,
        grpc_status => binary_to_integer(ErrorStatus),
        status_message => StatusMessage, headers => Headers,
        result => Response, trailers => Trailers}}.
+

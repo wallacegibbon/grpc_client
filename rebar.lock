@@ -10,7 +10,7 @@
  {<<"gpb">>,{pkg,<<"gpb">>,<<"4.17.0">>},1},
  {<<"grpc_lib">>,
   {git,"https://github.com/wallacegibbon/grpc_lib",
-       {ref,"08a321bb5a1b3ad64e81055d7de7f0af7d0d18b9"}},
+       {ref,"6c0578574d5f2abd8335adf03aa555b203453e20"}},
   0}]}.
 [
 {pkg_hash,[

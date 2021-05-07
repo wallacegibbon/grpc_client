@@ -25,6 +25,9 @@
 
 -export([stop/1]).
 
-start(_Type, _Args) -> grpc_client_sup:start_link().
+start(_Type, _Args) ->
+    grpc_client_sup:start_link().
 
-stop(_State) -> ok.
+stop(_State) ->
+    ok.
+

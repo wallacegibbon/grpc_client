@@ -26,39 +26,23 @@
 %%
 -module(grpc_client).
 
--export([compile/1,
-         compile/2,
-         connect/3,
-         connect/4,
-         get/1,
-         new_stream/4,
-         new_stream/5,
-         ping/2,
-         rcv/1,
-         rcv/2,
-         send/2,
-         send_last/2,
-         stop_connection/1,
-         stop_stream/1,
-         stop_stream/2,
-         unary/6]).
+-export([compile/1, compile/2, connect/3, connect/4, get/1, new_stream/4,
+         new_stream/5, ping/2, rcv/1, rcv/2, send/2, send_last/2,
+         stop_connection/1, stop_stream/1, stop_stream/2, unary/6]).
 
 -type connection_option() :: verify_server_opt() |
                              server_host_override_opt() |
                              http2_client_opt() |
                              {http2_options, [http2_option()]}.
 
--type verify_server_opt() :: {verify_server_identity,
-                              boolean()}.
+-type verify_server_opt() :: {verify_server_identity, boolean()}.
 
 %% If true (and if the transport is ssl), the client will verify
 %% that the subject of the server certificate matches with the domain
 %% of the server (use the 'server_host_override' to check against
 %% another name).
 
--type
-     server_host_override_opt() :: {server_host_override,
-                                    string()}.
+-type server_host_override_opt() :: {server_host_override, string()}.
 
 %% If the 'verify_server_identity' option is set, check the subject of
 %% the server certificate against this name (rather than against the host name).
@@ -76,15 +60,13 @@
 %% Passed on to the HTTP/2 client. See the documentation of 'http2_client' for the options
 %% that can be specified for the default HTTP2/2 client.
 
--type
-     connection() :: grpc_client_connection:connection().
+-type connection() :: grpc_client_connection:connection().
 
 -type metadata_key() :: binary().
 
 -type metadata_value() :: binary().
 
--type metadata() :: #{metadata_key() =>
-                          metadata_value()}.
+-type metadata() :: #{metadata_key() => metadata_value()}.
 
 -type compression_method() :: none | gzip.
 
@@ -101,8 +83,7 @@
 
 -type get_response() :: rcv_response() | empty.
 
--type unary_response(Type) :: ok_response(Type) |
-                              error_response(Type).
+-type unary_response(Type) :: ok_response(Type) | error_response(Type).
 
 -type ok_response(Type) :: {ok,
                             #{result := Type, status_message := binary(),
@@ -119,12 +100,8 @@
 
 -type error_type() :: client | timeout | http | grpc.
 
--export_type([connection/0,
-              stream_option/0,
-              connection_option/0,
-              client_stream/0,
-              unary_response/1,
-              metadata/0,
+-export_type([connection/0, stream_option/0, connection_option/0,
+              client_stream/0, unary_response/1, metadata/0,
               compression_method/0]).
 
 -spec compile(FileName :: string()) -> ok.
@@ -144,10 +121,8 @@ compile(FileName) -> grpc_client:compile(FileName, []).
 %% current working directory will be found).
 compile(FileName, Options) ->
     grpc_lib_compile:file(FileName,
-                          [{generate, client},
-                           {strings_as_binaries, true},
-                           {module_name_suffix, "_pb"}
-                           | Options]).
+                          [{generate, client}, {strings_as_binaries, true},
+                           {module_name_suffix, "_pb"} | Options]).
 
 -spec connect(Transport :: tcp | ssl, Host :: string(),
               Port :: integer()) -> {ok, connection()} |
@@ -181,10 +156,7 @@ connect(Transport, Host, Port) ->
 %% is possible to select 'grpc_client_chatterbox_adapter', which
 %% implements an adapter for the chatterbox http/2 client.
 connect(Transport, Host, Port, Options) ->
-    grpc_client_connection:new(Transport,
-                               Host,
-                               Port,
-                               Options).
+    grpc_client_connection:new(Transport, Host, Port, Options).
 
 -spec new_stream(Connection :: connection(),
                  Service :: atom(), Rpc :: atom(),
@@ -200,13 +172,8 @@ new_stream(Connection, Service, Rpc, DecoderModule) ->
                  Options :: [stream_option()]) -> {ok, client_stream()}.
 
 %% @doc Create a new stream to start a new RPC.
-new_stream(Connection, Service, Rpc, DecoderModule,
-           Options) ->
-    grpc_client_stream:new(Connection,
-                           Service,
-                           Rpc,
-                           DecoderModule,
-                           Options).
+new_stream(Connection, Service, Rpc, DecoderModule, Options) ->
+    grpc_client_stream:new(Connection, Service, Rpc, DecoderModule, Options).
 
 -spec send(Stream :: client_stream(),
            Msg :: map()) -> ok.
@@ -221,14 +188,14 @@ send(Stream, Msg) when is_pid(Stream), is_map(Msg) ->
 %% @doc Send a message to server and mark it as the last message
 %% on the stream. For simple RPC and client-streaming RPCs that
 %% will trigger the response from the server.
-send_last(Stream, Msg)
-    when is_pid(Stream), is_map(Msg) ->
+send_last(Stream, Msg) when is_pid(Stream), is_map(Msg) ->
     grpc_client_stream:send_last(Stream, Msg).
 
 -spec rcv(Stream :: client_stream()) -> rcv_response().
 
 %% @equiv rcv(Stream, infinity)
-rcv(Stream) -> grpc_client_stream:rcv(Stream).
+rcv(Stream) ->
+    grpc_client_stream:rcv(Stream).
 
 -spec rcv(Stream :: client_stream(),
           Timeout :: timeout()) -> rcv_response().
@@ -250,8 +217,7 @@ rcv(Stream, Timeout) ->
 get(Stream) -> grpc_client_stream:get(Stream).
 
 -spec ping(Connection :: connection(),
-           Timeout :: timeout()) -> {ok,
-                                     RoundTripTime :: integer()} |
+           Timeout :: timeout()) -> {ok, RoundTripTime :: integer()} |
                                     {error, term()}.
 
 %% @doc Send a PING request.
@@ -289,29 +255,21 @@ stop_connection(Connection) ->
 %%
 %% Set up a stream, receive headers, message and trailers, stop
 %% the stream and assemble a response. This is a blocking function.
-unary(Connection, Message, Service, Rpc, Decoder,
-      Options) ->
-    {Timeout, StreamOptions} = grpc_lib:keytake(timeout,
-                                                Options,
-                                                infinity),
-    try new_stream(Connection,
-                   Service,
-                   Rpc,
-                   Decoder,
-                   StreamOptions)
+unary(Connection, Message, Service, Rpc, Decoder, Options) ->
+    {Timeout, StreamOptions} = grpc_lib:keytake(timeout, Options, infinity),
+    try
+        new_stream(Connection, Service, Rpc, Decoder, StreamOptions)
     of
         {ok, Stream} ->
-            Response = grpc_client_stream:call_rpc(Stream,
-                                                   Message,
-                                                   Timeout),
+            Response = grpc_client_stream:call_rpc(Stream, Message, Timeout),
             stop_stream(Stream),
             Response;
         {error, I} ->
             {error, #{error_type => client, status_message => I}}
     catch
         Type:Error:Stacktrace ->
-            {error,
-             #{error_type => client,
-               status_message => <<"error creating stream">>,
-               debug_info => {Type, Error, Stacktrace}}}
+            {error, #{error_type => client,
+                      status_message => <<"error creating stream">>,
+                      debug_info => {Type, Error, Stacktrace}}}
     end.
+

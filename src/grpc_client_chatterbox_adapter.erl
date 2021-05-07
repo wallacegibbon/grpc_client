@@ -24,24 +24,16 @@
 %% https://github.com/willemdj/chatterbox
 -module(grpc_client_chatterbox_adapter).
 
--export([new_connection/4,
-         new_stream/2,
-         send_headers/4,
-         send_data/4,
-         ping/2,
-         close/1,
-         rst_stream/3,
-         peercert/1]).
+-export([new_connection/4, new_stream/2, send_headers/4, send_data/4, ping/2,
+         close/1, rst_stream/3, peercert/1]).
 
 -type connection() :: term().
 
 -type stream_id() :: term().
 
--type header() :: [{Name :: binary(),
-                    Value :: binary()}].
+-type header() :: [{Name :: binary(), Value :: binary()}].
 
--type connection_option() :: {transport_options,
-                              [ssl:ssl_option()]}.
+-type connection_option() :: {transport_options, [ssl:ssl_option()]}.
 
 -type send_option() :: {end_stream, boolean()}.
 
@@ -58,17 +50,14 @@ new_connection(Transport, Host, Port, Options) ->
              end,
     TransportOptions =
         proplists:get_value(transport_options, Options, []),
-    try h2_client:start_link(Scheme,
-                             Host,
-                             Port,
-                             TransportOptions)
+    try
+        h2_client:start_link(Scheme, Host, Port, TransportOptions)
     catch
         _Type:Reason -> {error, Reason}
     end.
 
 -spec new_stream(Connection :: term(),
-                 Options :: [term()]) -> {ok, integer()} |
-                                         {error, term()}.
+                 Options :: [term()]) -> {ok, integer()} | {error, term()}.
 
 new_stream(Connection, _) ->
     R = h2_connection:new_stream(Connection),
@@ -80,22 +69,16 @@ new_stream(Connection, _) ->
 
 %% @doc Send headers.
 send_headers(Pid, StreamId, Headers, Options) ->
-    h2_connection:send_headers(Pid,
-                               StreamId,
-                               Headers,
-                               send_options(Options)).
+    h2_connection:send_headers(Pid, StreamId, Headers, send_options(Options)).
 
--spec send_data(connection(), stream_id(),
-                Data :: binary(), Options :: [send_option()]) -> ok |
-                                                                 {error,
-                                                                  term()}.
+-spec send_data(connection(),
+                stream_id(),
+                Data :: binary(),
+                Options :: [send_option()]) -> ok | {error, term()}.
 
 %% @doc Send a data frame.
 send_data(Pid, StreamId, Data, Options) ->
-    h2_connection:send_body(Pid,
-                            StreamId,
-                            Data,
-                            send_options(Options)).
+    h2_connection:send_body(Pid, StreamId, Data, send_options(Options)).
 
 -spec rst_stream(connection(), stream_id(),
                  ErrorCode :: integer()) -> ok | {error, term()}.
@@ -118,14 +101,16 @@ ping(Pid, _Timeout) ->
 -spec close(connection()) -> ok.
 
 %% @doc Close the connection.
-close(Pid) -> h2_connection:stop(Pid).
+close(Pid) ->
+    h2_connection:stop(Pid).
 
 -spec peercert(pid()) -> {ok, Cert :: binary()} |
                          {error, Reason :: term()}.
 
 %% @doc The peer certificate is returned as a DER-encoded binary.
 %% The certificate can be decoded with public_key:pkix_decode_cert/2.
-peercert(Pid) -> h2_connection:get_peercert(Pid).
+peercert(Pid) ->
+    h2_connection:get_peercert(Pid).
 
 %%% ---------------------------------------------------------------------------
 %%% Internal functions
@@ -133,7 +118,11 @@ peercert(Pid) -> h2_connection:get_peercert(Pid).
 
 send_options(Options) ->
     case lists:keyfind(end_stream, 1, Options) of
-        false -> [{send_end_stream, false}];
-        {_, false} -> [{send_end_stream, false}];
-        {_, true} -> [{send_end_stream, true}]
+        false ->
+            [{send_end_stream, false}];
+        {_, false} ->
+            [{send_end_stream, false}];
+        {_, true} ->
+            [{send_end_stream, true}]
     end.
+
